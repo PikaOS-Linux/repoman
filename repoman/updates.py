@@ -31,11 +31,6 @@ class Updates(Gtk.Box):
 
     distro_codename = repo.get_os_codename()
     os_name = repo.get_os_name()
-    repo_descriptions = {
-        f'{distro_codename}-security': _('Important security updates'),
-        f'{distro_codename}-updates': _('Recommended updates'),
-        f'{distro_codename}-backports': _('Unsupported updates')
-    }
 
     def __init__(self, parent):
         Gtk.Box.__init__(self, False, 0)
@@ -117,8 +112,6 @@ class Updates(Gtk.Box):
 
         switch = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 6)
         switch.set_hexpand(True)
-        if suite in self.repo_descriptions:
-            description = self.repo_descriptions[suite]
 
         label_text = suite
         if description:
@@ -141,33 +134,12 @@ class Updates(Gtk.Box):
         for switch in self.checks_grid.get_children():
             self.checks_grid.remove(switch)
 
-        for repo in self.repo_descriptions:
-            switch = self.get_new_switch(repo)
-
             self.handlers[switch.toggle] = switch.toggle.connect(
                 'state-set',
                 self.on_suite_toggled
             )
             self.checks_grid.add(switch)
             switch.show_all()
-        
-        if self.system_repo:
-            for suite in self.system_repo.suites:
-                if suite in self.repo_descriptions:
-                    continue
-                if 'proposed' in suite:
-                    # This is handled on the settings page.
-                    continue
-                if self.distro_codename == suite:
-                    # Skip the standard distro suite.
-                    continue
-                switch = self.get_new_switch(suite)
-                self.handlers[switch.toggle] = switch.toggle.connect(
-                    'state-set',
-                    self.on_suite_toggled
-                )
-                self.checks_grid.add(switch)
-                switch.show_all()
 
     def show_updates(self):
         """ Initialize the state of all of the switches. """

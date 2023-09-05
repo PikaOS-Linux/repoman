@@ -30,11 +30,7 @@ prime_pos = Gtk.EntryIconPosition.PRIMARY
 sec_pos = Gtk.EntryIconPosition.SECONDARY
 
 class Settings(Gtk.Box):
-    repo_descriptions = {
-        'universe': _('Community-maintained software'),
-        'restricted': _('Proprietary drivers for devices'),
-        'multiverse': _('Software with Copyright or Legal Restrictions')
-    }
+    repo_descriptions = {}
 
     def __init__(self, parent):
         Gtk.Box.__init__(self, False, 0)
@@ -45,26 +41,8 @@ class Settings(Gtk.Box):
         self.os_name = repo.get_os_name()
         self.handlers = {}
         self.prev_enabled = False
-        self.proposed_name = f'{repo.get_os_codename()}-proposed'
 
         self.parent = parent
-
-        self.source_check = self.get_new_switch(
-            'source-code',
-            _('Include source code')
-        )
-        self.handlers[self.source_check.toggle] = self.source_check.toggle.connect(
-            'state-set',
-            self.on_source_check_toggled
-        )
-        self.proposed_check = self.get_new_switch(
-           self.proposed_name,
-            _('Prerelease updates')
-        )
-        self.handlers[self.proposed_check.toggle] = self.proposed_check.toggle.connect(
-            'state-set',
-            self.on_proposed_check_toggled
-        )
 
         source_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 6)
         source_box.set_hexpand(True)
@@ -72,7 +50,6 @@ class Settings(Gtk.Box):
         source_label.set_halign(Gtk.Align.START)
         source_box.add(source_label)
         source_switch = Gtk.Switch()
-        source_switch.suite = f'{repo.get_os_codename()}-proposed'
         source_switch.set_halign(Gtk.Align.END)
 
         settings_grid = Gtk.Grid()
@@ -132,17 +109,12 @@ class Settings(Gtk.Box):
         self.checks_grid.set_spacing(12)
         settings_grid.attach(self.checks_grid, 0, 4, 1, 1)
 
-        developer_options = Gtk.Expander()
-        developer_options.set_label(_('Developer Options (Advanced)'))
-        settings_grid.attach(developer_options, 0, 5, 1, 1)
-
         self.developer_grid = Gtk.VBox()
         self.developer_grid.set_margin_left(12)
         self.developer_grid.set_margin_top(12)
         self.developer_grid.set_margin_right(36)
         self.developer_grid.set_margin_bottom(12)
         self.developer_grid.set_spacing(12)
-        developer_options.add(self.developer_grid)
 
         developer_label = Gtk.Label.new(
             _('These options are primarily of interest to developers.')
@@ -151,13 +123,10 @@ class Settings(Gtk.Box):
         developer_label.set_halign(Gtk.Align.START)
         developer_label.set_margin_start(0)
         self.developer_grid.add(developer_label)
-        self.developer_grid.add(self.source_check)
-        self.developer_grid.add(self.proposed_check)
 
         self.create_switches()
         if self.system_repo:
             self.on_config_changed(None, None, None, None)
-            developer_options.grab_focus()
         else:
             self.switches_sensitive = False
 
@@ -406,6 +375,18 @@ class Settings(Gtk.Box):
                 if component == 'main':
                     # Doesn't really make sense for this to be toggleable.
                     continue
+                if component == 'amdgpu':
+                    # Doesn't really make sense for this to be toggleable.
+                    continue
+                if component == 'rocm':
+                    # Doesn't really make sense for this to be toggleable.
+                    continue
+                if component == 'external':
+                    # Doesn't really make sense for this to be toggleable.
+                    continue
+                if component == 'ubuntu':
+                    # Doesn't really make sense for this to be toggleable.
+                    continue
                 switch = self.get_new_switch(component)
                 self.handlers[switch.toggle] = switch.toggle.connect(
                     'state-set',
@@ -415,8 +396,6 @@ class Settings(Gtk.Box):
                 self.checks_grid.add(switch)
 
     def set_child_checks_sensitive(self):
-        self.source_check.set_sensitive(self.prev_enabled)
-        self.proposed_check.set_sensitive(self.prev_enabled)
         try:
             self.parent.updates.set_checks_enabled(self.prev_enabled)
         except AttributeError:
@@ -425,15 +404,6 @@ class Settings(Gtk.Box):
 
     def show_source_code(self):
         self.block_handlers()
-        self.source_check.toggle.set_active(self.system_repo.sourcecode_enabled)
-        self.unblock_handlers()
-
-    def show_proposed(self):
-        self.block_handlers()
-        if self.proposed_name in self.system_repo.suites:
-            self.proposed_check.toggle.set_active(True)
-        else:
-            self.proposed_check.toggle.set_active(False)
         self.unblock_handlers()
 
     def show_distro(self):
@@ -476,53 +446,10 @@ class Settings(Gtk.Box):
             err_dialog.run()
             err_dialog.destroy()
 
-    def on_source_check_toggled(self, switch, state):
-        self.system_repo.sourcecode_enabled = state
-        try:
-            self.system_repo.file.save()
-        except Exception as err:
-            self.log.error(
-                    'Could not set source code: %s', str(err)
-            )
-            err_dialog = repo.get_error_messagedialog(
-                self.parent.parent,
-                f'Could not set Source Code',
-                err,
-                'The system source code status could not be changed'
-            )
-            err_dialog.run()
-            err_dialog.destroy()
-
-    def on_proposed_check_toggled(self, switch, state):
-        suites = self.system_repo.suites
-        if state:
-            if switch.component not in suites:
-                suites.append(switch.component)
-        else:
-            if switch.component in suites:
-                suites.remove(switch.component)
-        self.system_repo.suites = suites
-        try:
-            self.system_repo.file.save()
-        except Exception as err:
-            self.log.error(
-                    'Could not set suite: %s', str(err)
-            )
-            err_dialog = repo.get_error_messagedialog(
-                self.parent.parent,
-                f'Could not set suite',
-                err,
-                'The system suite could not be changed'
-            )
-            err_dialog.run()
-            err_dialog.destroy()
-
     def on_config_changed(self, monitor, file, other_file, event_type):
         self.log.debug('Installation changed, regenerating list')
         if self.system_repo:
             self.show_distro()
-            self.show_source_code()
-            self.show_proposed()
             self.set_mirrors()
 
     def on_reset_mirror_button_clicked(self, button):
